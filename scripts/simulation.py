@@ -90,7 +90,7 @@ def generate_plots(
 
 
 def generate_and_show_plots(
-    kappa, gamma, S_hat, delta_hat, Delta0_func, eta0_func, Delta_E, R, k, zb, zt, N, T_final, L, oc, zg, solver='RK45', levels = 30
+    kappa, gamma, S_hat, delta_hat, Delta0_func, eta0_func, Delta_E, R, k, zb, zt, N, T_final, L, oc, zg, solver='RK45', levels = 30, save=False
 ):
     '''
     Generates and shows plots
@@ -131,6 +131,8 @@ def generate_and_show_plots(
     :type solver: string, optional
     :param levels: number of contour levels, default=30
     :type levels: int, optional
+    :param save: whether to save the plot, default=True
+    :type save: boolean, optional
     :returns: sol_Delta, sol_eta
     :rtype: np.array(float), np.array(float)
     '''
@@ -147,7 +149,13 @@ def generate_and_show_plots(
     # Adjust layout
     plt.tight_layout()
 
+    if save:
+        plt.savefig(f'../figure_cache/simulation_kappa={kappa}_gamma={gamma}_S_hat={S_hat}_delta_hat={delta_hat}_N={N}.png')
+
     # Show the plot
     plt.show()
 
+
+
     return sol_Delta, sol_eta
+   
