@@ -2,6 +2,8 @@ import numpy as np
 from dynamical_system import F_k, full_system
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, PillowWriter
+from IPython.display import HTML, display
 
 #Simulate equations under differnet parameter sets through discretized integration
 def simulate(
@@ -150,7 +152,7 @@ def generate_and_show_plots(
     plt.tight_layout()
 
     if save:
-        plt.savefig(f'../figure_cache/simulation_kappa={kappa}_gamma={gamma}_S_hat={S_hat}_delta_hat={delta_hat}_N={N}.png')
+        plt.savefig(f'../figure_cache/static/simulation_kappa={kappa}_gamma={gamma}_S_hat={S_hat}_delta_hat={delta_hat}_N={N}.png')
 
     # Show the plot
     plt.show()
@@ -158,4 +160,112 @@ def generate_and_show_plots(
 
 
     return sol_Delta, sol_eta
+
+
+def generate_animated_plots(
+    animation_values, param_to_animate, kappa, gamma, S_hat, delta_hat, Delta0, eta0, Delta_E, R, k, zb, zt, N, T_final, L, oc, zg, num_frames = 50, solver='RK45', levels = 30, save=False
+):
+    '''
+    Generates and shows plots
+
+    :param animation_values: values of the parameter to animate
+    :type animation_values: np.array(float)
+    :param param_to_animate: which parameter we are animating
+    :type param_to_animate: string
+    :param kappa: forcing parameter
+    :type kappa: float
+    :param gamma: time scale paramter
+    :type gamma: float
+    :param S_hat: S_hat parameter
+    :type S_hat: float
+    :param delta_hat: parameter
+    :type delta_hat: float
+    :param Delta0: function representing the initial value of Delta
+    :type Delta0: function
+    :param eta0: function representing the initial value of eta
+    :type eta0: function
+    :param Delta_E: equilibrium value of Delta
+    :type Delta_E: function
+    :param R: R function
+    :type R: function
+    :param k: wavenumber
+    :type k: int
+    :param zb: bottom of vortex
+    :type zb: float
+    :param zt: top of vortex
+    :type zt: float
+    :param N: discretization number
+    :type N: int
+    :param T_final: final time of simulation
+    :type T_final: int
+    :param L: linear operator
+    :type L: np.array(float)
+    :param oc: omega_c
+    :type oc: np.array(float)
+    :param zg: z-grid
+    :type zg: np.array(float)
+    :param num_frames: number of animation frames, default = 50
+    :type num_frames: int
+    :param solver: integration solver to use, default='RK45'
+    :type solver: string, optional
+    :param levels: number of contour levels, default=30
+    :type levels: int, optional
+    :param save: whether to save the plot, default=True
+    :type save: boolean, optional
+    :returns: sol_Delta, sol_eta
+    :rtype: np.array(float), np.array(float)
+    '''
+    global axs, c1, c2, c3
+    # Create a figure with 4 subplots
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+
+    # Initialize the lines for Delta and abs of Eta
+    c1 = c2 = c3 = None
+
+    fig.colorbar(c1, ax=axs[0, 0], cmap='viridis')
+    fig.colorbar(c2, ax=axs[0, 1], cmap='plasma')
+    fig.colorbar(c3, ax=axs[1, 0], cmap='viridis')
+
+
+    def init():
+        for ax in axs.flat:
+            ax.clear()
+        return axs.flat
+
+    # Function to update the animation
+    def update(frame, param_to_animate, kappa, gamma, S_hat, delta_hat, Delta0, eta0, Delta_E, R, k, zb, zt, N, T_final, L, oc, zg, fig, levels):
+        global axs, c1, c2, c3  
+
+        if param_to_animate == 'kappa':
+            kappa = animation_values[frame % len(animation_values)]
+        elif param_to_animate == 'gamma':
+            gamma = animation_values[frame % len(animation_values)]
+        elif param_to_animate == 'S_hat':
+            S_hat = animation_values[frame % len(animation_values)]
+        elif param_to_animate == 'delta_hat':
+            delta_hat = animation_values[frame % len(animation_values)]
+        elif param_to_animate == 'Delta0':
+            Delta0 = animation_values[frame % len(animation_values)]
+        elif param_to_animate == 'eta0':
+            eta0 = animation_values[frame % len(animation_values)]
+
+        for ax in axs.flat:
+            ax.clear()
+
+        axs, c1, c2, c3, _, _ = generate_plots(kappa, gamma, S_hat, delta_hat, Delta0, eta0, Delta_E, R, k, zb, zt, N, T_final, L, oc, zg, fig, axs, c1=c1, c2=c2, solver='RK45', levels = levels)
+
+        return axs.flat
+
+    ani = FuncAnimation(fig, update, frames=num_frames, init_func=init, 
+        fargs=(param_to_animate, kappa, gamma, S_hat, delta_hat, Delta0, eta0, Delta_E, R, k, zb, zt, N, T_final, L, oc, zg, fig, levels), blit=False, repeat=True)
+
+    # Display the animation
+    html_anim = HTML(ani.to_jshtml())
+    display(html_anim)
+
+    if save:
+        ani.save(filename=f'../figure_cache/animated/MultiLayer Delta and AbsEta for varying {param_to_animate}.html', writer="html")
+
+    return html_anim
+
    
