@@ -324,10 +324,9 @@ def compute_dDelta_dt_from_range_Delta(
 
     return dDelta_all, eigenvalues_all, eigenvectors_all
 
-def generate_contours(dDeltas, Deltas, zg, x_axis_level):
+def generate_contours(dDeltas, Deltas, zg, x_axis_level, min_spacing = 0.01, num_levels = 50):
     Z = np.nan_to_num(dDeltas, nan=0.0)
     # Define symmetric logarithmic contour levels, while handling zero and near-zero values
-    num_levels = 50
 
     # Ensure no zero values for log scale by setting minimum threshold
     positive_min = Z[Z > 0].min() if np.any(Z > 0) else 1e-3
@@ -337,8 +336,7 @@ def generate_contours(dDeltas, Deltas, zg, x_axis_level):
     positive_levels = np.geomspace(positive_min, Z.max(), num_levels) if Z.max() > 0 else []
     negative_levels = -np.geomspace(negative_min, -Z.min(), num_levels) if Z.min() < 0 else []
     levels = np.concatenate((negative_levels[::-1], [0], positive_levels))
-
-    min_spacing = 0.01
+    
     # Filter levels to enforce minimum spacing
     filtered_levels = [levels[0]]
     for level in levels[1:]:
