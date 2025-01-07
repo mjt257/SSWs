@@ -50,7 +50,7 @@ def dDelta_dt(Delta, eta, Delta_E, gamma, kappa):
     """
     return gamma * (Delta_E/np.max(Delta_E) - Delta - (kappa * Delta * np.conj(eta)*eta))
 
-def deta_dt(Delta, eta, Li, omega_c, S_hat, delta_hat, F_k, dz):
+def deta_dt(Delta, eta, Li, omega_c, S_hat, delta_hat, F_k, dz=1):
     """
     Function representing d\eta/dt
 
@@ -102,7 +102,7 @@ def deta_dt(Delta, eta, Li, omega_c, S_hat, delta_hat, F_k, dz):
     deta = term1 + term2 + term3
     return deta; 
 
-def full_system(y, constant_params, function_params, dz):
+def full_system(y, constant_params, function_params, dz=1, params_dict = None,):
     """
     Function representing equation [d\Delta/dt, d\eta/dt] 
 
@@ -118,14 +118,50 @@ def full_system(y, constant_params, function_params, dz):
     :return: vector representing concatenate d\Delta/dt, d\eta, dt
     :rtype: np.array(float)
     """
+    if params_dict:
+        S_hat = params_dict['hat_Sk']
+        delta_hat = params_dict['hat_delta']
+        kappa = params_dict['kappa']
+        gamma = params_dict['gamma']
 
-    S_hat, delta_hat, kappa, gamma = constant_params
-    Li, omegac, Delta_E, F_k = function_params
+        Li = params_dict['T_k']
+        omegac = params_dict['T_1']
+        Delta_E = params_dict['Delta_E']
+        F_k = params_dict['F_k']
+    else: 
+        S_hat, delta_hat, kappa, gamma = constant_params
+        Li, omegac, Delta_E, F_k = function_params
 
     Delta, eta = np.split(y, 2)
     Delta = np.real(Delta)
     delta_dt = dDelta_dt(Delta, eta, Delta_E, gamma, kappa)
-    eta_dt = deta_dt(Delta, eta, Li, omegac, S_hat, delta_hat, F_k, dz)
+    eta_dt = deta_dt(Delta, eta, Li, omegac, S_hat, delta_hat, F_k, dz=dz)
 
     # Return concatenated derivatives
     return np.concatenate([delta_dt, eta_dt])
+
+
+def full_system_real(y, params):
+
+    S_hat = params['hat_Sk']
+    delta_hat = params['hat_delta']
+    kappa = params['kappa']
+    gamma = params['gamma']
+
+    Li = params['T_k'] 
+    omegac = params['T_1']
+    Delta_E = params['Delta_E']
+    F_k = params['F_k']
+
+    #y has shape Delta, eta.real, eta.imag
+    Delta, eta_real, eta_imag = np.split(y, 3)
+    eta = np.empty_like(Delta, dtype=np.complex128)
+    eta.real = eta_real
+    eta.imag = eta_imag
+
+    delta_dt = dDelta_dt(Delta, eta, Delta_E, gamma, kappa)
+    eta_dt = deta_dt(Delta, eta, Li, omegac, S_hat, delta_hat, F_k)
+
+    # Return concatenated derivatives
+    return np.concatenate([delta_dt.real, eta_dt.real, eta_dt.imag])
+

@@ -20,8 +20,8 @@ def simulate(
     Fk = np.vectorize(F_k)(R_func, z, k)
 
     #Compute initial conditions on grid
-    Delta_0 = np.vectorize(Delta_0_func)(z).astype(float)  
-    eta_0 = np.vectorize(eta_0_func)(z).astype(complex)
+    Delta_0 = np.vectorize(Delta_0_func)(z).astype(float) if callable(Delta_0_func) else Delta_0_func
+    eta_0 = np.vectorize(eta_0_func)(z).astype(complex) if callable(eta_0_func) else eta_0_func
 
     # Initial condition vector
     y0 = np.concatenate([Delta_0, eta_0])
