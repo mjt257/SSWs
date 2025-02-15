@@ -52,6 +52,12 @@ class Solution:
                 f"alpha1={self.alpha1:.3g}, "
                 f"alpha2={self.alpha2:.3g}, "
                 f"||y||={norm(self.y):.3g})")
+    
+    def __copy__(self):
+        return Solution(self.x.copy())
+    
+    def copy(self):
+        return self.__copy__()
 
     @property
     def y(self):
@@ -83,6 +89,7 @@ class Branch:
     """
     def __init__(self, branch_id, initial_solution: Solution):
         self.branch_id = branch_id
+        self.open = True
         # We'll store solutions in a set for O(1) membership checks
         self.solutions = set()
         self.current_solution = initial_solution
@@ -171,19 +178,33 @@ def find_all_solutions_at_params(params, starting_solution = None, n_starts=10, 
         eta_real_part = amplitude * np.sin(2 * np.pi * zg / wavelength + phase)
         eta_imaginary_part = amplitude * np.cos(2 * np.pi * zg / wavelength + phase)
 
-        starting_solution = np.concat([starting_delta, eta_real_part, eta_imaginary_part])
+        starting_solution = np.concatenate([starting_delta, eta_real_part, eta_imaginary_part])
 
     for i in range(n_starts):
-        if sweep_range is None:
-            y0 = np.random.uniform(0, 1, 3*N)
+        if i == 0:
+            y0 = starting_solution
+        elif sweep_range is None:
+            zg = np.linspace(1, 5, N)
+            amplitude = np.random.uniform(0, 1)
+            wavelength = np.random.uniform(5, 20)  # Random wavelength
+            phase = np.random.uniform(0, 2 * np.pi)  # Random phase
+            starting_delta = amplitude * np.sin(2 * np.pi * zg / wavelength + phase)
+
+            amplitude = np.random.uniform(0, 1)
+            wavelength = np.random.uniform(5, 20)  # Random wavelength
+            phase = np.random.uniform(0, 2 * np.pi)  # Random phase
+            eta_real_part = amplitude * np.sin(2 * np.pi * zg / wavelength + phase)
+            eta_imaginary_part = amplitude * np.cos(2 * np.pi * zg / wavelength + phase)
+
+            y0 = np.concatenate([starting_delta, eta_real_part, eta_imaginary_part])
         else:
             y0 = np.minimum(np.maximum(starting_solution + np.random.uniform(sweep_range[0], sweep_range[1], 3*N), 0), 1)
         res = root(
             fun=lambda y: deflated_residual(y, found_solutions, params),
             x0=y0,
             #jac=lambda y: deflated_jacobian(y, found_solutions, params),
-            method='krylov',
-            options={'maxiter': 1000},
+            method='hybr',
+            #options={'maxiter': 1000},
             tol=solver_tol
         )
         if res.success:
@@ -324,6 +345,8 @@ def multiple_branch_continuation_2D(
 
         # Initialize tangents for each branch
         for b in branches:
+            if b.open == False:
+                continue
             X0 = b.current_solution.x
             dim = len(X0)  # should be 3N+2
             # A naive approach: set t1 to bump alpha1, t2 to bump alpha2
@@ -345,6 +368,9 @@ def multiple_branch_continuation_2D(
         active_branches = list(branches)
 
         for branch in active_branches:
+            if branch.open == False:
+                continue
+
             sol_current = branch.current_solution
             X_current   = sol_current.x
 
@@ -403,30 +429,44 @@ def multiple_branch_continuation_2D(
             # 4) Pick the closest solution to X_new => update the branch
             def dist_from_xnew(s_cand):
                 return np.linalg.norm(s_cand.x - X_new)
+            
             s_closest = min(all_solutions_found, key=dist_from_xnew)
-            branch.add_solution(s_closest)
-            print(f"[Branch {branch.branch_id}] updated => {branch.current_solution}")
 
-            # 5) see if other solutions are new => spawn new branches
+            # 5) Assign solutions to branches (with merging logic)
             for s_other in all_solutions_found:
                 if s_other == s_closest:
-                    continue
-                # check if near any existing or newly spawned branch
-                is_new_sol = True
-                for b_exist in branches:
-                    if b_exist.has_solution(s_other):
-                        is_new_sol = False
-                        break
-                for b_new in new_branches_this_step:
-                    if b_new.has_solution(s_other):
-                        is_new_sol = False
-                        break
-                if is_new_sol:
-                    new_b = Branch(next_branch_id, s_other)
-                    next_branch_id += 1
-                    new_branches_this_step.append(new_b)
-                    print(f"    => spawned new branch {new_b.branch_id} with {s_other}")
+                    # Check if the closest solution exists in any other branch
+                    for other_branch in branches:
+                        if other_branch.has_solution(s_closest):
+                            if branch.branch_id > other_branch.branch_id:
+                                branch.open = False
+                                print(f"Branch {branch.branch_id} closed due to conflict with Branch {other_branch.branch_id}")
+                            else:
+                                other_branch.open = False
+                                print(f"Branch {branch.branch_id} closed due to conflict with Branch {other_branch.branch_id}")
+                            break
+                    if branch.open:
+                        # Add the closest solution to the current branch
+                        branch.add_solution(s_closest)
+                        print(f"[Branch {branch.branch_id}] updated => {branch.current_solution}")
+                    
+                else:
+                    # Check if the solution exists in any branch
+                    is_new_solution = True
+                    for other_branch in branches:
+                        if other_branch.has_solution(s_other):
+                            is_new_solution = False
+                            break
 
+                    # Spawn a new branch for truly new solutions
+                    if is_new_solution:
+                        new_branch = Branch(next_branch_id, s_other)
+                        new_branch.open = True
+                        new_branches_this_step.append(new_branch)
+                        next_branch_id += 1
+                        print(f"Spawned new Branch {new_branch.branch_id} with solution {s_other}")
+
+            # Update the branches list with newly spawned branches
         branches.extend(new_branches_this_step)
 
     return branches
