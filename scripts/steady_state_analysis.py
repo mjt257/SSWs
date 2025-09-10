@@ -267,13 +267,15 @@ def compute_eta_decomp(
     R: Callable[[complex], complex] | np.ndarray,
     zg: np.ndarray,
     k: int, 
-    num_eigenvalues: int = None
+    num_eigenvalues: int = None,
+    dz: float = None
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Computes eta(z) as a series expansion using A_n and eigenfunctions of L = Delta * T^k.
     """
     # Compute eigenvalues and eige 
-    dz = (zg[1] - zg[0])
+    if dz is None:
+        dz = (zg[1] - zg[0])
     L_matrix = T_k * Delta * dz
     omega_c_matrix = np.diag(T1 @ Delta * dz)
     eigenvalues, eigenvectors = np.linalg.eig(L_matrix - omega_c_matrix)
@@ -367,6 +369,11 @@ def generate_contours(dDeltas, Deltas, zg, x_axis_level, min_spacing = 0.01, num
     contour = plt.contour(Deltas[:, x_axis_level], zg, dDeltas.T, levels=filtered_levels, cmap='Grays')
     zero_contour = plt.contour(Deltas[:, x_axis_level], zg, dDeltas.T, levels=[0], colors='red', linewidths=2, linestyles='--')
     plt.clabel(contour, inline=True, fontsize=8, fmt="%.2f")
+
+
+# --------------------------------------------------------
+# OLD/ARCHIVE
+# --------------------------------------------------------
 
 # --------------------------------------------------------
 # New Parameter Continuation and Searching 
